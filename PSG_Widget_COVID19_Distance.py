@@ -39,21 +39,19 @@ BG_COLOR = sg.theme_background_color()
 ALPHA = 1.0
 
 NUM_CITIES = 5
-settings = {}
-zipcode = ''
 
 SETTINGS_FILE = path.join(path.dirname(__file__), r'C19-widget.cfg')
 
 def load_settings():
-    settings = {}
+    settings = {'zipcode': 'New York, NY', 'country': 'United States'}
 
     try:
         with open(SETTINGS_FILE, 'r') as f:
             settings = json.load(f)
     except:
         sg.popup_quick_message('No settings file found... will create one for you', keep_on_top=True)
-        zipcode = sg.popup_get_text('Enter Zipcode or city, state for your loction')
-        settings['zipcode'] = zipcode
+        settings = change_settings(settings)
+        zipcode = settings['zipcode']
         if not zipcode:
             sg.popup_error('Aborting', auto_close=True, auto_close_duration=2)
             exit(69)
@@ -65,8 +63,22 @@ def save_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f)
 
+def change_settings(settings):
+    layout = [[sg.T('Zipcode OR City, State for your location')],
+              [sg.I(settings.get('zipcode', ''), size=(15,1), key='-ZIP-')],
+              [sg.T('Country')],
+              [sg.I(settings.get('country', 'United States'), size=(15,1), key='-COUNTRY-')],
+              [sg.B('Ok', bind_return_key=True), sg.B('Cancel')],
+              ]
+    event, values = sg.Window('Settings', layout, keep_on_top=True).read(close=True)
+    if event == 'Ok':
+        settings['zipcode'] = values['-ZIP-']
+        settings['country'] = values['-COUNTRY-']
 
-def distance_list(zipcode, window):
+    return settings
+
+
+def distance_list(settings, window):
     # Setup the geolocator
     geopy.geocoders.options.default_user_agent = 'my_app/1'
     geopy.geocoders.options.default_timeout = 7
@@ -74,7 +86,8 @@ def distance_list(zipcode, window):
 
     # Find location based on my zip code
     try:
-        location = geolocator.geocode(zipcode)      # type: geopy.location.Location
+        # location = geolocator.geocode({'postalcode' : '42420', 'country':settings['country']})      # type: geopy.location.Location
+        location = geolocator.geocode(f'{settings["zipcode"]} {settings["country"]}')      # type: geopy.location.Location
         myloc = (location.latitude, location.longitude)
         window['-LOCATION-'].update(location.address)
         window['-LATLON-'].update(myloc)
@@ -157,7 +170,7 @@ def main(refresh_rate, settings):
     # Create main window
     window = create_window()
 
-    distances = distance_list(zipcode, window)
+    distances = distance_list(settings, window)
     update_display(window, zipcode, distances)
 
     while True:
@@ -165,17 +178,16 @@ def main(refresh_rate, settings):
         if event in (None, 'Exit', '-QUIT-'):
             break
         elif event == '-SETTINGS-':
+            settings = change_settings(settings)
             # Insert a proper settings window here
-            zip = sg.popup_get_text('Zipcode or city, state for your loction', default_text=zipcode, keep_on_top=True)
-            if zip:
-                zipcode=zip
+            zipcode = settings['zipcode']
         elif event == '-MOREINFO-':
             webbrowser.open(r'https://www.arcgis.com/apps/opsdashboard/index.html#/bda7594740fd40299423467b48e9ecf6')
         elif event == '-REFRESH-':
             pass        # will automatically refresh so nothing to do
 
         if zipcode:
-            distances = distance_list(zipcode, window)
+            distances = distance_list(settings, window)
             settings['zipcode'] = zipcode
             save_settings(settings)
             update_display(window, zipcode, distances)
