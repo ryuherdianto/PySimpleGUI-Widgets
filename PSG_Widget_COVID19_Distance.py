@@ -37,13 +37,13 @@ sg.theme('Dark Red')
 TXT_COLOR = sg.theme_text_color()
 BG_COLOR = sg.theme_background_color()
 ALPHA = 1.0
-
+REFRESH_RATE_IN_MINUTES = 5
 NUM_CITIES = 5
 
 SETTINGS_FILE = path.join(path.dirname(__file__), r'C19-widget.cfg')
 
 def load_settings():
-    settings = {'zipcode': 'New York, NY', 'country': 'United States'}
+    settings = {'zipcode': 'New York, NY', 'country': 'United States', 'units':'miles'}
 
     try:
         with open(SETTINGS_FILE, 'r') as f:
@@ -68,12 +68,17 @@ def change_settings(settings):
               [sg.I(settings.get('zipcode', ''), size=(15,1), key='-ZIP-')],
               [sg.T('Country')],
               [sg.I(settings.get('country', 'United States'), size=(15,1), key='-COUNTRY-')],
+              [sg.T('Distance'),
+               sg.R('Miles', 1, default=True if settings.get('units') =='miles' else False, key='-MILES-'),
+               sg.R('Kilometers', 1, default=True if settings.get('units') =='kilometers' else False, key='-KILOMETERS-'), ],
               [sg.B('Ok', bind_return_key=True), sg.B('Cancel')],
               ]
     event, values = sg.Window('Settings', layout, keep_on_top=True).read(close=True)
+
     if event == 'Ok':
         settings['zipcode'] = values['-ZIP-']
         settings['country'] = values['-COUNTRY-']
+        settings['units'] = 'miles' if values['-MILES-'] else 'kilometers'
 
     return settings
 
@@ -92,8 +97,9 @@ def distance_list(settings, window):
         window['-LOCATION-'].update(location.address)
         window['-LATLON-'].update(myloc)
     except Exception as e:
-        sg.popup_error(f'Exception computing distance. Exception {e}', 'Deleting your settings file', keep_on_top=True)
+        sg.popup_error(f'Exception computing distance. Exception {e}', 'Deleting your settings file so you can restart from scratch', keep_on_top=True)
         remove(SETTINGS_FILE)
+        exit(69)
         return None
 
     # Download Covid-19 data
@@ -104,6 +110,7 @@ def distance_list(settings, window):
       """ Calculate the distance between my location and the other locations in the dataset """
       rowloc = (row.Lat, row.Long)
       miles = distance(myloc, rowloc).miles
+      kilometers = distance(myloc, rowloc).kilometers
       return miles
 
     df['DistanceInMiles'] = df.apply(distance_in_miles, axis=1)
@@ -114,9 +121,10 @@ def distance_list(settings, window):
 
 def create_output(distances):
     out = []
-    values = distances.values[0:5]
+    values = distances.values[0:NUM_CITIES-1]
+    out = [f'{"Location":27} {"Country":4}    {"Miles":6} {"Kilometers":8}']
     for data in values:
-        out.append(f'{data[0]:30} {data[1]:4} {data[-1]:8.2f}')
+        out.append(f'{data[0]:30} {data[1]:4} {data[-1]:8.2f} {data[-1]*1.61:8.2f}')
     return out
 
 
@@ -124,25 +132,29 @@ def nearest(distances):
     return distances.values[0][-1]
 
 
-def update_display(window, zipcode, distances):
+def update_display(window, zipcode, distances, settings):
     if distances is not None:
         text = create_output(distances)
         for i, line in enumerate(text):
             window[i].update(line)
         window['-ZIP-'].update(zipcode)
-        window['-NEAREST-'].update(f'{nearest(distances):.2f} Miles')
+        if settings.get('units') == 'kilometers':
+            window['-NEAREST-'].update(f'{nearest(distances)*1.61:.2f} Kilometers')
+        else:
+            window['-NEAREST-'].update(f'{nearest(distances):.2f} Miles')
     window['-UPDATED-'].update('Updated: ' + datetime.datetime.now().strftime("%B %d %I:%M:%S %p"))
+
 
 def create_window():
     """ Create the application window """
     PAD = (0,0)
-    main_data_col = [*[[sg.T(size=(56,1), font='Courier 12', key=i, background_color=sg.theme_text_color(), text_color=sg.theme_background_color(), pad=(0,0))] for i in range(NUM_CITIES)]]
+    main_data_col = [*[[sg.T(size=(58,1), font='Courier 12', key=i, background_color=sg.theme_text_color(), text_color=sg.theme_background_color(), pad=(0,0))] for i in range(NUM_CITIES)]]
 
-    layout = [[sg.T('COVID-19 Distance', font='Arial 40 bold', pad=PAD),
-               sg.Text('×', font=('Arial Black', 16), pad=((50,10), 0), justification='right', background_color=BG_COLOR, text_color=TXT_COLOR, enable_events=True, key='-QUIT-')],
-              [sg.T(size=(15,1), font='Arial 40 bold', key='-ZIP-', pad=PAD)],
-              [sg.T(size=(12,1), font='Arial 30 bold', key='-NEAREST-', pad=PAD)],
-              [sg.T(size=(40,2), key='-LOCATION-')],
+    layout = [[sg.T('COVID-19 Distance', font='Arial 35 bold', pad=PAD),
+               sg.Text('×', font=('Arial Black', 16), pad=((110,5),(0,0)), justification='right', background_color=BG_COLOR, text_color=TXT_COLOR, enable_events=True, key='-QUIT-')],
+              [sg.T(size=(15,1), font='Arial 35 bold', key='-ZIP-', pad=PAD)],
+              [sg.T(size=(18,1), font='Arial 30 bold', key='-NEAREST-', pad=PAD)],
+              [sg.T(size=(70,2), key='-LOCATION-')],
               [sg.T(size=(40,1), key='-LATLON-')],
               [sg.Col(main_data_col, pad=(0,0))],
               [sg.T(size=(40,1), font='Arial 8', key='-UPDATED-')],
@@ -161,26 +173,24 @@ def create_window():
     return window
 
 
-def main(refresh_rate, settings):
+def main(refresh_rate_minutes, settings):
 
     zipcode = settings['zipcode']
-    """ The main program routine """
-    timeout_minutes = refresh_rate * 60 * 1000
 
-    # Create main window
     window = create_window()
 
     distances = distance_list(settings, window)
-    update_display(window, zipcode, distances)
+    update_display(window, zipcode, distances, settings)
 
     while True:
-        event, values = window.read(timeout=timeout_minutes)
+        event, values = window.read(timeout=refresh_rate_minutes * 60 * 1000)
         if event in (None, 'Exit', '-QUIT-'):
             break
         elif event == '-SETTINGS-':
             settings = change_settings(settings)
             # Insert a proper settings window here
             zipcode = settings['zipcode']
+            save_settings(settings)
         elif event == '-MOREINFO-':
             webbrowser.open(r'https://www.arcgis.com/apps/opsdashboard/index.html#/bda7594740fd40299423467b48e9ecf6')
         elif event == '-REFRESH-':
@@ -188,11 +198,9 @@ def main(refresh_rate, settings):
 
         if zipcode:
             distances = distance_list(settings, window)
-            settings['zipcode'] = zipcode
-            save_settings(settings)
-            update_display(window, zipcode, distances)
+            update_display(window, zipcode, distances, settings)
     window.close()
 
 if __name__ == '__main__':
     settings = load_settings()
-    main(5, settings)
+    main(REFRESH_RATE_IN_MINUTES, settings)
