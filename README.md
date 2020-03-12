@@ -49,3 +49,13 @@ Change the colors to any of the PySimpleGUI Themes.
 Your key and location are saved in a config file (.CFG).  Any time you change the key or the location it will be saved in your config file.
 
 ![SNAG-0649](https://user-images.githubusercontent.com/46163555/76476971-3ddaef00-63da-11ea-8e7e-3aafb1485185.jpg)
+
+
+-------------------------
+
+## CPU Core Usage
+
+This one uses psutil to graph the CPU time used by each of your CPU's cores.
+
+![PSG CPU Cores Scrolling](https://user-images.githubusercontent.com/46163555/72114378-52830400-3311-11ea-8584-32bde5c265db.gif)
+
