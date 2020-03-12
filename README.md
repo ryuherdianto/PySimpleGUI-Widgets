@@ -36,3 +36,16 @@ https://www.arcgis.com/apps/opsdashboard/index.html#/bda7594740fd40299423467b48e
 Visual Dashboard (mobile):
 
 http://www.arcgis.com/apps/opsdashboard/index.html#/85320e2ea5424dfaaa75ae62e5c06e61
+
+
+--------------------
+
+## Weather - Current Weather Conditions
+
+You will need to obtain an API key (APPID) from https://home.openweathermap.org/ in order to run this Widget.
+
+Change the colors to any of the PySimpleGUI Themes.
+
+Your key and location are saved in a config file (.CFG).  Any time you change the key or the location it will be saved in your config file.
+
+![SNAG-0649](https://user-images.githubusercontent.com/46163555/76476971-3ddaef00-63da-11ea-8e7e-3aafb1485185.jpg)
