@@ -102,7 +102,7 @@ def distance_list(settings, window):
         exit(69)
 
     # Download Covid-19 data
-    file_url = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"
+    file_url = "https://github.com/CSSEGISandData/COVID-19/blob/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
     df = pd.read_csv(file_url)
 
     def distance_in_miles(row):
